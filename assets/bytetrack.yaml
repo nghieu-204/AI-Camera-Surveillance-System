@@ -1,0 +1,23 @@
+# ByteTrack config tùy chỉnh cho AI Camera Project
+# Thư mục: assets/bytetrack.yaml
+
+tracker_type: bytetrack
+
+# Ngưỡng confidence để tham gia vòng association đầu tiên (high-confidence detections)
+track_high_thresh: 0.25
+
+# Ngưỡng confidence cho vòng association thứ hai (low-confidence detections)
+track_low_thresh: 0.05
+
+# Ngưỡng confidence tối thiểu để TẠO ID MỚI cho đối tượng lần đầu xuất hiện
+new_track_thresh: 0.25
+
+# Số frame tối đa giữ track khi đối tượng bị mất
+track_buffer: 30
+
+# Ngưỡng IoU để ghép cặp bbox
+match_thresh: 0.8
+
+# Kết hợp confidence score với IoU khi tính similarity matrix
+# Bắt buộc với ultralytics phiên bản mới
+fuse_score: True

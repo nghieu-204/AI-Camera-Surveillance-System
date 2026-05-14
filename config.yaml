@@ -1,0 +1,81 @@
+# =============================================================================
+# AI CAMERA SURVEILLANCE SYSTEM - FILE CẤU HÌNH CHÍNH
+# =============================================================================
+# Chỉnh sửa file này để thay đổi hành vi của hệ thống mà không cần sửa code.
+# Sau khi chỉnh sửa, khởi động lại ứng dụng để áp dụng thay đổi.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# CẤU HÌNH CAMERA
+# -----------------------------------------------------------------------------
+cameras:
+  # Danh sách nguồn video cho từng camera (tối đa 4)
+  # Có thể là đường dẫn file video hoặc RTSP URL
+  sources:
+    - "assets/test.mp4"        # Camera 1
+    - "assets/test.mp4"        # Camera 2
+    - "assets/test.mp4"        # Camera 3
+    - "assets/test.mp4"        # Camera 4
+  # Ví dụ RTSP: "rtsp://admin:pass@192.168.1.100:554/stream1"
+
+  # Thời gian chờ trước khi thử kết nối lại (giây)
+  reconnect_delay: 1
+
+# -----------------------------------------------------------------------------
+# CẤU HÌNH YOLO DETECTION (ProcessThread)
+# -----------------------------------------------------------------------------
+detection:
+  # Đường dẫn tới file weights YOLO
+  model_path: "yolov8n.pt"
+
+  # Kích thước ảnh đầu vào YOLO (px)
+  # 320 = nhanh (~100ms/frame), 640 = chính xác hơn (~400ms/frame)
+  # Gợi ý: dùng 320 nếu CPU yếu, 640 nếu CPU mạnh
+  imgsz: 640
+
+  # Ngưỡng confidence để nhận diện đối tượng (0.0 - 1.0)
+  # Thấp = detect nhiều hơn nhưng dễ nhầm | Cao = chặt chẽ hơn
+  conf_threshold: 0.25
+
+  # Ngưỡng IoU cho Non-Maximum Suppression
+  iou_threshold: 0.45
+
+# -----------------------------------------------------------------------------
+# CẤU HÌNH BYTETRACK (TrackingThread)
+# -----------------------------------------------------------------------------
+tracking:
+  # Đường dẫn file config ByteTrack
+  bytetrack_config: "assets/bytetrack.yaml"
+
+  # FPS video (ảnh hưởng đến Kalman Filter velocity estimation)
+  frame_rate: 25
+
+  # Số điểm lịch sử quỹ đạo tối đa để vẽ trajectory
+  max_trajectory_length: 20
+
+# -----------------------------------------------------------------------------
+# CẤU HÌNH LOGIC CẢNH BÁO (LogicThread)
+# -----------------------------------------------------------------------------
+logic:
+  # Số giây tối thiểu một người đứng trong ROI trước khi cảnh báo DWELL
+  dwell_threshold_seconds: 10.0
+
+  # Số người trong ROI tối thiểu để kích hoạt cảnh báo CROWD
+  crowd_threshold: 5
+
+# -----------------------------------------------------------------------------
+# CẤU HÌNH GIAO DIỆN (UI)
+# -----------------------------------------------------------------------------
+ui:
+  # FPS tối đa để render frame lên giao diện (giảm nếu UI bị lag)
+  target_ui_fps: 15
+
+  # Số cảnh báo tối đa hiển thị trong panel (cũ hơn sẽ bị xóa)
+  max_alerts: 100
+
+  # Kích thước cửa sổ khi khởi động
+  window_width: 1280
+  window_height: 720
+
+  # Tiêu đề cửa sổ
+  window_title: "AI Camera Surveillance System"
