@@ -120,12 +120,12 @@ class CameraWidget(QWidget):
         self.lbl_cap_fps = QLabel("Cap: 0.0")
         self.lbl_proc_fps = QLabel("Proc: 0.0")
         self.lbl_track_fps = QLabel("Track: 0.0")
-        self.lbl_logic_fps = QLabel("Logic: 0.0")
+        self.lbl_latency = QLabel("Lat: 0ms")
         self.lbl_count = QLabel("People: 0")
         
         for lbl in [self.lbl_status, self.lbl_roi_status,
                     self.lbl_cap_fps, self.lbl_proc_fps,
-                    self.lbl_track_fps, self.lbl_logic_fps, self.lbl_count]:
+                    self.lbl_track_fps, self.lbl_latency, self.lbl_count]:
             lbl.setStyleSheet("font-size: 12px; font-weight: bold;")
             status_layout.addWidget(lbl)
             
@@ -243,7 +243,7 @@ class CameraWidget(QWidget):
     def update_track_fps(self, fps):
         self.lbl_track_fps.setText(f"Track: {fps:.1f}")
 
-    def update_ui(self, frame, count, warning, logic_fps, alert_events):
+    def update_ui(self, frame, count, warning, logic_fps, alert_events, latency):
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
         qt_img = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
@@ -252,7 +252,7 @@ class CameraWidget(QWidget):
         self.video_label.setPixmap(pixmap)
         
         self.lbl_count.setText(f"People: {count}")
-        self.lbl_logic_fps.setText(f"Logic: {logic_fps:.1f}")
+        self.lbl_latency.setText(f"Lat: {latency*1000:.0f}ms")
         
         if warning:
             self.lbl_count.setStyleSheet("font-size: 14px; font-weight: bold; color: red;")

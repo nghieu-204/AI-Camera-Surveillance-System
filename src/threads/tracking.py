@@ -93,7 +93,7 @@ class TrackingThread(QThread):
         logger.info("TrackingThread bắt đầu chạy (BYTETracker).")
         while self.running:
             try:
-                frame, raw_dets = self.tracking_queue.get(timeout=1)
+                frame, raw_dets, cap_time = self.tracking_queue.get(timeout=1)
 
                 # Tạo đối tượng giả lập Results để BYTETracker có thể xử lý
                 # BYTETracker.update() cần: .xyxy, .conf, .cls
@@ -154,7 +154,7 @@ class TrackingThread(QThread):
 
                 # Đẩy sang luồng Logic
                 if self.logic_queue.empty():
-                    self.logic_queue.put((frame, objects))
+                    self.logic_queue.put((frame, objects, cap_time))
 
             except queue.Empty:
                 continue

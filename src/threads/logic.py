@@ -6,8 +6,8 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from src.utils.logger import logger
 
 class LogicThread(QThread):
-    # Phát tín hiệu về UI: frame_đã_vẽ, số_người, có_cảnh_báo_không, fps, danh_sách_cảnh_báo
-    result_signal = pyqtSignal(object, int, bool, float, list)
+    # Phát tín hiệu về UI: frame_đã_vẽ, số_người, có_cảnh_báo_không, fps, danh_sách_cảnh_báo, latency
+    result_signal = pyqtSignal(object, int, bool, float, list, float)
 
     def __init__(self, logic_queue, target_ui_fps=15):
         super().__init__()
@@ -31,7 +31,7 @@ class LogicThread(QThread):
         logger.info("LogicThread bắt đầu chạy (ROI & Warning Logic).")
         while self.running:
             try:
-                frame, objects = self.logic_queue.get(timeout=1)
+                frame, objects, cap_time = self.logic_queue.get(timeout=1)
                 warning_triggered = False
                 
                 current_time = time.time()
@@ -133,8 +133,9 @@ class LogicThread(QThread):
 
                 # Gửi ảnh đã vẽ về UI (throttle theo target_ui_fps)
                 if should_emit:
+                    latency = current_time - cap_time
                     self._last_emit = current_time
-                    self.result_signal.emit(annotated_frame, person_count, warning_triggered, self.fps, alert_events)
+                    self.result_signal.emit(annotated_frame, person_count, warning_triggered, self.fps, alert_events, latency)
 
             except queue.Empty:
                 continue

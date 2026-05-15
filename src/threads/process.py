@@ -38,7 +38,7 @@ class ProcessThread(QThread):
         while self.running:
             try:
                 # Lấy frame từ hàng đợi (không chờ đợi quá lâu)
-                frame = self.frame_queue.get(timeout=1)
+                frame, cap_time = self.frame_queue.get(timeout=1)
                 
                 annotated_frame = frame.copy()
                 
@@ -90,7 +90,7 @@ class ProcessThread(QThread):
 
                 # Đẩy sang luồng Tracking
                 if self.tracking_queue.empty():
-                    self.tracking_queue.put((annotated_frame, raw_dets))
+                    self.tracking_queue.put((annotated_frame, raw_dets, cap_time))
                 
             except queue.Empty:
                 continue

@@ -44,7 +44,7 @@ class CaptureThread(QThread):
 
                 # Đẩy frame xuống pipeline: dùng backpressure tự nhiên của queue
                 if self.frame_queue.empty():
-                    self.frame_queue.put(frame)
+                    self.frame_queue.put((frame, current_time))
                     time_diff = current_time - self.last_time
                     if time_diff > 0:
                         self.cap_fps = (self.cap_fps * 0.9) + ((1.0 / time_diff) * 0.1)
