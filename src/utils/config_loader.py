@@ -19,6 +19,7 @@ _DEFAULTS = {
         "imgsz": 640,
         "conf_threshold": 0.25,
         "iou_threshold": 0.45,
+        "device": "auto",
     },
     "tracking": {
         "bytetrack_config": "assets/bytetrack.yaml",

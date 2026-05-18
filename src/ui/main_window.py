@@ -8,7 +8,7 @@ from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen, QColor, QFont
 from PyQt5.QtCore import Qt, QPoint, QRect
 
 from src.threads.capture import CaptureThread
-from src.threads.process import ProcessThread
+from src.threads.process import BatchProcessThread
 from src.threads.tracking import TrackingThread
 from src.threads.logic import LogicThread
 from src.utils.logger import logger
@@ -81,6 +81,7 @@ class CameraWidget(QWidget):
         super().__init__(parent)
         self.camera_id = camera_id
         self.source = source
+        self.main_window = parent
         self.is_playing = True
         self.alert_panel_callback = None  # callback để gửi event ra panel tổng
         
@@ -141,23 +142,14 @@ class CameraWidget(QWidget):
         
         # Init Threads
         cam_cfg = get_cameras_cfg()
-        det = get_detection_cfg()
         trk = get_tracking_cfg()
         lgc = get_logic_cfg()
         ui  = get_ui_cfg()
-
+ 
         self.capture_thread  = CaptureThread(
             source=self.source,
             frame_queue=self.frame_queue,
             reconnect_delay=cam_cfg["reconnect_delay"]
-        )
-        self.process_thread  = ProcessThread(
-            frame_queue=self.frame_queue,
-            tracking_queue=self.tracking_queue,
-            model_path=det["model_path"],
-            conf_threshold=det["conf_threshold"],
-            iou_threshold=det["iou_threshold"],
-            imgsz=det["imgsz"],
         )
         self.tracking_thread = TrackingThread(
             tracking_queue=self.tracking_queue,
@@ -179,21 +171,18 @@ class CameraWidget(QWidget):
         
         # Connect signals
         self.capture_thread.fps_signal.connect(self.update_cap_fps)
-        self.process_thread.fps_signal.connect(self.update_proc_fps)
         self.tracking_thread.fps_signal.connect(self.update_track_fps)
         self.logic_thread.result_signal.connect(self.update_ui)
     def start(self):
         self.capture_thread.start()
-        self.process_thread.start()
         self.tracking_thread.start()
         self.logic_thread.start()
         
     def stop(self):
         self.capture_thread.stop()
-        self.process_thread.stop()
         self.tracking_thread.stop()
         self.logic_thread.stop()
-
+ 
     def toggle_pause(self):
         paused = self.capture_thread.toggle_pause()
         if paused:
@@ -204,29 +193,32 @@ class CameraWidget(QWidget):
             self.btn_play_pause.setText("Pause")
             self.lbl_status.setText("Status: Play")
             self.lbl_status.setStyleSheet("font-size: 14px; font-weight: bold; color: green;")
-
+ 
     def enable_drawing(self):
         self.video_label.drawing_mode = True
         self.video_label.roi_points = []
         self.video_label.rect_start = None
         self.video_label.rect_end = None
         self.lbl_roi_status.setText("ROI: Drawing...")
-
+ 
     def on_roi_drawn(self, rel_points):
         """Gọi khi người dùng vẽ xong ROI - cập nhật cả 2 thread."""
         self.logic_thread.set_roi(rel_points)
-        self.process_thread.set_roi(rel_points)
-
+        if self.main_window and hasattr(self.main_window, 'batch_process_thread'):
+            self.main_window.batch_process_thread.set_roi(self.camera_id - 1, rel_points)
+ 
     def clear_roi(self):
         self.video_label.roi_points = []
         self.video_label.drawing_mode = False
         self.video_label.update()
         self.logic_thread.set_roi([])
-        self.process_thread.set_roi([])
+        if self.main_window and hasattr(self.main_window, 'batch_process_thread'):
+            self.main_window.batch_process_thread.set_roi(self.camera_id - 1, [])
         self.update_roi_status(False)
-
+ 
     def update_roi_status(self, is_active):
-        self.process_thread.set_roi_active(is_active)
+        if self.main_window and hasattr(self.main_window, 'batch_process_thread'):
+            self.main_window.batch_process_thread.set_roi_active(self.camera_id - 1, is_active)
         if is_active:
             self.lbl_roi_status.setText("ROI: Active")
             self.lbl_roi_status.setStyleSheet("font-size: 14px; font-weight: bold; color: blue;")
@@ -291,12 +283,32 @@ class MainWindow(QMainWindow):
         sources = get_camera_sources()
         for i in range(4):
             source = sources[i] if i < len(sources) else "assets/test.mp4"
-            cam = CameraWidget(camera_id=i+1, source=source)
+            cam = CameraWidget(camera_id=i+1, source=source, parent=self)
             cam.set_alert_callback(self.add_alert)
             self.cameras.append(cam)
             row = i // 2
             col = i % 2
             grid_layout.addWidget(cam, row, col)
+            
+        # --- Khởi tạo và chạy luồng gom Batch AI duy nhất ---
+        det = get_detection_cfg()
+        frame_queues = [cam.frame_queue for cam in self.cameras]
+        tracking_queues = [cam.tracking_queue for cam in self.cameras]
+        
+        self.batch_process_thread = BatchProcessThread(
+            frame_queues=frame_queues,
+            tracking_queues=tracking_queues,
+            model_path=det["model_path"],
+            conf_threshold=det["conf_threshold"],
+            iou_threshold=det["iou_threshold"],
+            imgsz=det["imgsz"],
+            device=det.get("device", "auto")
+        )
+        self.batch_process_thread.fps_signal.connect(self.update_all_proc_fps)
+        self.batch_process_thread.start()
+        
+        # Khởi chạy luồng độc lập của các camera
+        for cam in self.cameras:
             cam.start()
         
         cam_container = QWidget()
@@ -367,8 +379,15 @@ class MainWindow(QMainWindow):
         if self.alert_list.count() > 100:
             self.alert_list.takeItem(self.alert_list.count() - 1)
 
+    def update_all_proc_fps(self, fps):
+        """Cập nhật tốc độ xử lý AI gộp cho tất cả các CameraWidget."""
+        for cam in self.cameras:
+            cam.update_proc_fps(fps)
+
     def closeEvent(self, event):
         logger.info("Đang đóng ứng dụng...")
+        if hasattr(self, 'batch_process_thread'):
+            self.batch_process_thread.stop()
         for cam in self.cameras:
             cam.stop()
         event.accept()

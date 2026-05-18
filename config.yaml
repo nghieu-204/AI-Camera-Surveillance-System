@@ -40,6 +40,11 @@ detection:
   # Ngưỡng IoU cho Non-Maximum Suppression
   iou_threshold: 0.45
 
+  # Thiết bị chạy (device): "cuda" hoặc "cpu" hoặc "auto"
+  # Vì bạn đã cài đặt PyTorch CUDA thành công (GeForce RTX 3050 Ti), hãy đặt là "cuda" để chạy bằng GPU.
+  # Nếu đặt "auto", hệ thống tự động phát hiện GPU/CUDA nếu có, ngược lại dùng CPU.
+  device: "cuda"
+
 # -----------------------------------------------------------------------------
 # CẤU HÌNH BYTETRACK (TrackingThread)
 # -----------------------------------------------------------------------------
