@@ -136,9 +136,9 @@ class CameraWidget(QWidget):
         self.setLayout(main_layout)
         
         # Init Queues (Pipeline: capture -> process -> tracking -> logic -> UI)
-        self.frame_queue = queue.Queue(maxsize=2)
-        self.tracking_queue = queue.Queue(maxsize=2)
-        self.logic_queue = queue.Queue(maxsize=2)
+        self.frame_queue = queue.Queue(maxsize=1)
+        self.tracking_queue = queue.Queue(maxsize=1)
+        self.logic_queue = queue.Queue(maxsize=1)
         
         # Init Threads
         cam_cfg = get_cameras_cfg()
@@ -185,11 +185,43 @@ class CameraWidget(QWidget):
  
     def toggle_pause(self):
         paused = self.capture_thread.toggle_pause()
+        self.tracking_thread.toggle_pause()
+        self.logic_thread.toggle_pause()
+        
+        # Cập nhật trạng thái camera vào luồng Batch AI để bỏ qua hoàn toàn camera này
+        if self.main_window and hasattr(self.main_window, 'batch_process_thread'):
+            self.main_window.batch_process_thread.set_camera_active(self.camera_id - 1, not paused)
+            
         if paused:
             self.btn_play_pause.setText("Play")
             self.lbl_status.setText("Status: Stop")
             self.lbl_status.setStyleSheet("font-size: 14px; font-weight: bold; color: red;")
+            
+            # Đặt các hiển thị FPS và thông tin về 0 khi dừng camera
+            self.lbl_cap_fps.setText("Cap: 0.0")
+            self.lbl_proc_fps.setText("Proc: 0.0")
+            self.lbl_track_fps.setText("Track: 0.0")
+            self.lbl_latency.setText("Lat: 0ms")
+            self.lbl_count.setText("People: 0")
+            self.lbl_count.setStyleSheet("font-size: 12px; font-weight: bold;")
         else:
+            # Dọn sạch các hàng đợi để tránh hiện tượng dồn ảnh cũ khi bật lại
+            while not self.frame_queue.empty():
+                try:
+                    self.frame_queue.get_nowait()
+                except queue.Empty:
+                    break
+            while not self.tracking_queue.empty():
+                try:
+                    self.tracking_queue.get_nowait()
+                except queue.Empty:
+                    break
+            while not self.logic_queue.empty():
+                try:
+                    self.logic_queue.get_nowait()
+                except queue.Empty:
+                    break
+                    
             self.btn_play_pause.setText("Pause")
             self.lbl_status.setText("Status: Play")
             self.lbl_status.setStyleSheet("font-size: 14px; font-weight: bold; color: green;")
@@ -379,10 +411,11 @@ class MainWindow(QMainWindow):
         if self.alert_list.count() > 100:
             self.alert_list.takeItem(self.alert_list.count() - 1)
 
-    def update_all_proc_fps(self, fps):
+    def update_all_proc_fps(self, fps_list):
         """Cập nhật tốc độ xử lý AI gộp cho tất cả các CameraWidget."""
-        for cam in self.cameras:
-            cam.update_proc_fps(fps)
+        for i, cam in enumerate(self.cameras):
+            if i < len(fps_list):
+                cam.update_proc_fps(fps_list[i])
 
     def closeEvent(self, event):
         logger.info("Đang đóng ứng dụng...")

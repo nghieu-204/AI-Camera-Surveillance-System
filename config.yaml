@@ -31,7 +31,7 @@ detection:
   # Kích thước ảnh đầu vào YOLO (px)
   # 320 = nhanh (~100ms/frame), 640 = chính xác hơn (~400ms/frame)
   # Gợi ý: dùng 320 nếu CPU yếu, 640 nếu CPU mạnh
-  imgsz: 640
+  imgsz: 320
 
   # Ngưỡng confidence để nhận diện đối tượng (0.0 - 1.0)
   # Thấp = detect nhiều hơn nhưng dễ nhầm | Cao = chặt chẽ hơn

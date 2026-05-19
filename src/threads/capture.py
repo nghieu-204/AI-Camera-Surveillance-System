@@ -14,9 +14,9 @@ class CaptureThread(QThread):
         self.reconnect_delay = reconnect_delay
         self.running = True
         self.paused = False
-        self.last_time = time.time()
         self.cap_fps = 0.0
-        self._last_fps_emit = 0.0  # Throttle fps_signal (chỉ emit mỗi 1 giây)
+        self.frame_count = 0
+        self._last_fps_time = time.time()
 
     def run(self):
         logger.info(f"Bắt đầu đọc video từ: {self.source}")
@@ -37,18 +37,21 @@ class CaptureThread(QThread):
             ret, frame = cap.read()
             if ret:
                 current_time = time.time()
-                # Throttle fps_signal: chỉ emit mỗi 1 giây
-                if current_time - self._last_fps_emit >= 1.0:
+                self.frame_count += 1
+                
+                # Tính FPS mỗi 1 giây dựa trên số frame thực tế chụp được
+                elapsed = current_time - self._last_fps_time
+                if elapsed >= 1.0:
+                    raw_fps = self.frame_count / elapsed
+                    self.cap_fps = (self.cap_fps * 0.9) + (raw_fps * 0.1)
                     self.fps_signal.emit(self.cap_fps)
-                    self._last_fps_emit = current_time
+                    self.frame_count = 0
+                    self._last_fps_time = current_time
 
                 # Đẩy frame xuống pipeline: dùng backpressure tự nhiên của queue
                 if self.frame_queue.empty():
                     self.frame_queue.put((frame, current_time))
-                    time_diff = current_time - self.last_time
-                    if time_diff > 0:
-                        self.cap_fps = (self.cap_fps * 0.9) + ((1.0 / time_diff) * 0.1)
-                    self.last_time = current_time
+
             else:
                 logger.warning(f"Mất tín hiệu hoặc hết video từ: {self.source}. Đang thử kết nối lại...")
                 cap.release()

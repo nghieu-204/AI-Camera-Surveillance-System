@@ -23,6 +23,11 @@ class LogicThread(QThread):
         self.fps = 0.0
         self._ui_interval = 1.0 / target_ui_fps  # Khoảng cách tối thiểu giữa 2 lần emit
         self._last_emit = 0.0
+        self.paused = False
+
+    def toggle_pause(self):
+        self.paused = not self.paused
+        return self.paused
 
     def set_roi(self, rel_points):
         self.rel_roi_points = rel_points
@@ -30,6 +35,9 @@ class LogicThread(QThread):
     def run(self):
         logger.info("LogicThread bắt đầu chạy (ROI & Warning Logic).")
         while self.running:
+            if self.paused:
+                time.sleep(0.1)
+                continue
             try:
                 frame, objects, cap_time = self.logic_queue.get(timeout=1)
                 warning_triggered = False

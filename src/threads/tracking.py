@@ -86,12 +86,20 @@ class TrackingThread(QThread):
         self.max_trajectory_length = 20
 
         self._track_fps = 0.0
-        self._last_time = time.time()
-        self._last_fps_emit = 0.0
+        self.frame_count = 0
+        self._last_fps_time = time.time()
+        self.paused = False
+
+    def toggle_pause(self):
+        self.paused = not self.paused
+        return self.paused
 
     def run(self):
         logger.info("TrackingThread bắt đầu chạy (BYTETracker).")
         while self.running:
+            if self.paused:
+                time.sleep(0.1)
+                continue
             try:
                 frame, raw_dets, cap_time = self.tracking_queue.get(timeout=1)
 
@@ -142,15 +150,18 @@ class TrackingThread(QThread):
                         thickness = int(np.sqrt(self.max_trajectory_length / float(i + 1)) * 2.5)
                         cv2.line(frame, pts[i - 1], pts[i], (0, 255, 255), max(1, thickness))
 
-                # Tính và emit FPS (mỗi 1 giây)
+                # Tăng bộ đếm khi hoàn thành một frame xử lý tracking hoàn chỉnh
+                self.frame_count += 1
+
+                # Tính và emit FPS (mỗi 1 giây) dựa trên số frame thực tế đã xử lý
                 now = time.time()
-                diff = now - self._last_time
-                if diff > 0:
-                    self._track_fps = self._track_fps * 0.9 + (1.0 / diff) * 0.1
-                self._last_time = now
-                if now - self._last_fps_emit >= 1.0:
+                elapsed = now - self._last_fps_time
+                if elapsed >= 1.0:
+                    raw_fps = self.frame_count / elapsed
+                    self._track_fps = self._track_fps * 0.9 + raw_fps * 0.1
                     self.fps_signal.emit(self._track_fps)
-                    self._last_fps_emit = now
+                    self.frame_count = 0
+                    self._last_fps_time = now
 
                 # Đẩy sang luồng Logic
                 if self.logic_queue.empty():
